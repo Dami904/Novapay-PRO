@@ -15,7 +15,7 @@ Onchain batch payroll and accounting for Web3 startups and DAOs. Upload a CSV, p
 ### 1. Clone and install
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Dami904/NovaPay.git
 cd NovaPay
 npm install
 ```
