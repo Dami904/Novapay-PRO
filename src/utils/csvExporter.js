@@ -50,20 +50,20 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
-export function exportHistoryToCSV(history, filename = 'payflow-ledger.csv') {
+export function exportHistoryToCSV(history, filename = 'novapay-ledger.csv') {
   downloadCSV(buildHistoryRows(history), filename)
 }
 
-export function exportHistoryToXLSX(history, filename = 'payflow-ledger.xlsx') {
+export function exportHistoryToXLSX(history, filename = 'novapay-ledger.xlsx') {
   downloadXLSX(buildHistoryRows(history), filename)
 }
 
 export function exportBatchToCSV(batch) {
   const safeLabel = batch.label.replace(/[^a-z0-9]/gi, '-').toLowerCase()
-  exportHistoryToCSV([batch], `payflow-${safeLabel}.csv`)
+  exportHistoryToCSV([batch], `novapay-${safeLabel}.csv`)
 }
 
 export function exportBatchToXLSX(batch) {
   const safeLabel = batch.label.replace(/[^a-z0-9]/gi, '-').toLowerCase()
-  exportHistoryToXLSX([batch], `payflow-${safeLabel}.xlsx`)
+  exportHistoryToXLSX([batch], `novapay-${safeLabel}.xlsx`)
 }

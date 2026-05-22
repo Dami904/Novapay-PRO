@@ -193,7 +193,7 @@ export function Web3Provider({ children }) {
         totalAmount,
         txHash: receipt.hash,
         explorerUrl: `${MORPH_TESTNET.blockExplorerUrls[0]}/tx/${receipt.hash}`,
-        recipients: recipients.map((addr, i) => ({ address: addr, amount: amounts[i] })),
+        recipients: recipients.map((addr, i) => ({ address: addr, name: rows?.[i]?.name || `Recipient ${i + 1}`, amount: amounts[i] })),
       }
 
       setHistory((prev) => {

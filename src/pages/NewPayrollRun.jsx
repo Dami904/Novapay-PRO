@@ -62,7 +62,7 @@ export default function NewPayrollRun() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'payflow-sample.csv'
+    a.download = 'novapay-sample.csv'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -76,7 +76,7 @@ export default function NewPayrollRun() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'payflow-sample.xlsx'
+    a.download = 'novapay-sample.xlsx'
     a.click()
     URL.revokeObjectURL(url)
   }
