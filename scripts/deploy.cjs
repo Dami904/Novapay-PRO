@@ -5,12 +5,12 @@ async function main() {
   console.log("Deploying with:", deployer.address);
   console.log("Balance:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH");
 
-  const PayFlow = await ethers.getContractFactory("PayFlow");
-  const payflow = await PayFlow.deploy();
-  await payflow.waitForDeployment();
+  const NovaPay = await ethers.getContractFactory("NovaPay");
+  const novapay = await NovaPay.deploy();
+  await novapay.waitForDeployment();
 
-  const address = await payflow.getAddress();
-  console.log("\nPayFlow deployed to:", address);
+  const address = await novapay.getAddress();
+  console.log("\nNovaPay deployed to:", address);
   console.log("Explorer:", `https://explorer-hoodi.morphl2.io/address/${address}`);
   console.log("\nPaste into src/utils/contractABI.js:");
   console.log(`  export const NOVAPAY_CONTRACT_ADDRESS = '${address}'`);
