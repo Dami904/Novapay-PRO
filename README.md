@@ -12,6 +12,8 @@ Onchain batch payroll and accounting for Web3 startups and DAOs. Upload a CSV, p
 - [MetaMask](https://metamask.io/) browser extension
 - Morph Hoodi configured in MetaMask (details below)
 
+> **No `.env` file needed.** The frontend runs fully in Demo Mode out of the box — no wallet, no contract, no real funds required. Contract deployment is only needed for live transactions.
+
 ### 1. Clone and install
 
 ```bash
@@ -73,14 +75,14 @@ Once these are non-zero addresses, Demo Mode turns off automatically and the app
 
 ## Expected Smart Contract Interface
 
-The frontend expects this Solidity interface:
+The frontend expects this Solidity interface (from `contracts/PayFlow.sol`):
 
 ```solidity
-// NovaPay.sol
 function batchPayout(
+    address            token,        // ERC20 token address (USDC or USDT)
     address[] calldata recipients,
-    uint256[] calldata amounts,   // in USDC (6 decimals)
-    string  calldata label
+    uint256[] calldata amounts,      // in token units (6 decimals for USDC/USDT)
+    string    calldata label
 ) external;
 
 event PayrollBatch(
@@ -92,7 +94,7 @@ event PayrollBatch(
 );
 ```
 
-The contract must pull USDC from the caller (via `transferFrom`) — the frontend approves the total amount before calling `batchPayout`.
+The contract pulls tokens from the caller via `transferFrom` — the frontend approves the exact total before calling `batchPayout`.
 
 ---
 
@@ -155,18 +157,23 @@ NovaPay/
 ├── index.html
 ├── vite.config.js
 ├── package.json
+├── hardhat.config.cjs          # Contract deploy config (Morph Hoodi)
+├── contracts/
+│   └── PayFlow.sol             # Batch payout smart contract
+├── scripts/
+│   └── deploy.cjs              # Hardhat deploy script
 ├── src/
-│   ├── index.jsx              # React entry point
-│   ├── App.jsx                # Router + layout
-│   ├── App.css                # All styles (dark theme)
+│   ├── index.jsx               # React entry point
+│   ├── App.jsx                 # Router + layout
+│   ├── App.css                 # All styles (dark theme)
 │   ├── context/
-│   │   └── Web3Context.jsx    # Wallet connection, contract calls, history
+│   │   └── Web3Context.jsx     # Wallet connection, contract calls, history
 │   ├── utils/
-│   │   ├── contractABI.js     # ABI + contract/network config
-│   │   ├── csvParser.js       # Parse + validate uploaded CSV
-│   │   └── csvExporter.js     # Export history to CSV
+│   │   ├── contractABI.js      # ABI + contract/network config
+│   │   ├── csvParser.js        # Parse + validate uploaded CSV
+│   │   └── csvExporter.js      # Export history to CSV/XLSX
 │   ├── components/
-│   │   └── Navbar.jsx         # Top navigation bar
+│   │   └── Navbar.jsx          # Top navigation bar
 │   └── pages/
 │       ├── ConnectWallet.jsx
 │       ├── Dashboard.jsx
@@ -208,12 +215,21 @@ That's it. From then on:
 
 ## Troubleshooting
 
-**"MetaMask not installed"** — Install the MetaMask browser extension and refresh.
+**`npm install` fails** — Make sure you're on Node.js v18 or higher. Run `node -v` to check. Download the LTS version from [nodejs.org](https://nodejs.org/).
 
-**Stuck on "Connecting…"** — Check that MetaMask is unlocked and you approved the connection request.
+**`vite: command not found`** — You skipped `npm install`. Run it first from inside the `NovaPay` folder.
 
-**Wrong network warning** — Click the warning or open MetaMask and switch to Morph Hoodi (Chain ID 2910). The app can add it automatically.
+**"MetaMask not installed"** — Install the MetaMask browser extension and refresh the page.
 
-**CSV upload shows errors** — Check that `wallet_address` is a valid 0x EVM address and `amount` is a positive number. Download the sample CSV for reference.
+**Stuck on "Connecting…"** — Check that MetaMask is unlocked and you approved the connection request. Try refreshing the page and connecting again.
+
+**Wrong network warning** — Click the warning banner in the app or open MetaMask manually and switch to Morph Hoodi (Chain ID 2910). The app can add the network automatically.
+
+**Port 5173 already in use** — Start the dev server on a different port:
+```bash
+npm run dev -- --port 3000
+```
+
+**CSV upload shows errors** — Check that `wallet_address` is a valid 0x EVM address and `amount` is a positive number. Use the **"Sample CSV"** button in the app to download a working example.
 
 **Transaction fails** — Ensure your USDC balance covers the total payout. In live mode the app approves the exact total before calling the contract.
