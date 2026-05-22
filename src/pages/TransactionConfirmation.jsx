@@ -18,7 +18,7 @@ export default function TransactionConfirmation() {
     return null
   }
 
-  const { txHash, explorerUrl, label, recipientCount, totalAmount } = state
+  const { txHash, explorerUrl, label, recipientCount, totalAmount, token = 'USDC' } = state
 
   return (
     <div className="page confirm-page">
@@ -46,7 +46,7 @@ export default function TransactionConfirmation() {
           <div className="confirm-row">
             <span className="confirm-key">Total Disbursed</span>
             <span className="confirm-val confirm-amount">
-              ${totalAmount.toLocaleString()} USDC
+              ${totalAmount.toLocaleString()} {token}
             </span>
           </div>
           <div className="confirm-row">

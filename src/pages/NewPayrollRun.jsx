@@ -1,7 +1,14 @@
 import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import * as XLSX from 'xlsx'
 import { useWeb3 } from '../context/Web3Context'
 import { parsePayrollCSV } from '../utils/csvParser'
+
+const SAMPLE_ROWS = [
+  { wallet_address: '0x1234567890123456789012345678901234567890', name: 'Alice Chen', amount: 3000 },
+  { wallet_address: '0x2345678901234567890123456789012345678901', name: 'Bob Smith', amount: 2500 },
+  { wallet_address: '0x3456789012345678901234567890123456789012', name: 'Carol Diaz', amount: 2500 },
+]
 
 const SAMPLE_CSV = `wallet_address,name,amount
 0x1234567890123456789012345678901234567890,Alice Chen,3000
@@ -9,7 +16,7 @@ const SAMPLE_CSV = `wallet_address,name,amount
 0x3456789012345678901234567890123456789012,Carol Diaz,2500`
 
 export default function NewPayrollRun() {
-  const { sendPayroll, usdcBalance } = useWeb3()
+  const { sendPayroll, tokenBalance, selectedToken, setSelectedToken } = useWeb3()
   const navigate = useNavigate()
 
   const [rows, setRows] = useState([])
@@ -23,8 +30,9 @@ export default function NewPayrollRun() {
 
   const processFile = useCallback(async (file) => {
     if (!file) return
-    if (!file.name.endsWith('.csv')) {
-      setSendError('Please upload a .csv file')
+    const ext = file.name.split('.').pop().toLowerCase()
+    if (!['csv', 'xlsx', 'xls'].includes(ext)) {
+      setSendError('Please upload a .csv, .xlsx, or .xls file')
       return
     }
     setSendError('')
@@ -49,19 +57,33 @@ export default function NewPayrollRun() {
     setIsDragging(true)
   }
 
-  function downloadSample() {
+  function downloadSampleCSV() {
     const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'novapay-sample.csv'
+    a.download = 'payflow-sample.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function downloadSampleXLSX() {
+    const ws = XLSX.utils.json_to_sheet(SAMPLE_ROWS)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Payroll')
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'payflow-sample.xlsx'
     a.click()
     URL.revokeObjectURL(url)
   }
 
   const validRows = rows.filter((r) => !r.hasError)
   const totalAmount = validRows.reduce((s, r) => s + r.amount, 0)
-  const hasBalance = parseFloat(usdcBalance) >= totalAmount
+  const hasBalance = parseFloat(tokenBalance) >= totalAmount
   const canSend = validRows.length > 0 && label.trim() && errors.length === 0 && !sending
 
   async function handleSend() {
@@ -82,6 +104,7 @@ export default function NewPayrollRun() {
           label: label.trim(),
           recipientCount: validRows.length,
           totalAmount,
+          token: selectedToken,
         },
       })
     } catch (err) {
@@ -95,7 +118,7 @@ export default function NewPayrollRun() {
       <div className="page-header">
         <div>
           <h1 className="page-title">New Payroll Run</h1>
-          <p className="page-sub">Upload your CSV, set a label, and send in one transaction</p>
+          <p className="page-sub">Upload your CSV or Excel file, choose a token, set a label, and send in one transaction</p>
         </div>
         <button className="btn-ghost" onClick={() => navigate('/dashboard')}>
           ← Back
@@ -106,10 +129,31 @@ export default function NewPayrollRun() {
         <div className="payroll-main">
           <div className="card">
             <div className="card-header">
-              <h2 className="card-title">Step 1 — Upload CSV</h2>
-              <button className="btn-ghost btn-sm" onClick={downloadSample}>
-                ↓ Sample CSV
-              </button>
+              <h2 className="card-title">Step 1 — Upload File</h2>
+              <div className="card-header-right">
+                <div className="token-toggle">
+                  <button
+                    className={`token-toggle-btn${selectedToken === 'USDC' ? ' active' : ''}`}
+                    onClick={() => setSelectedToken('USDC')}
+                  >
+                    USDC
+                  </button>
+                  <button
+                    className={`token-toggle-btn${selectedToken === 'USDT' ? ' active' : ''}`}
+                    onClick={() => setSelectedToken('USDT')}
+                  >
+                    USDT
+                  </button>
+                </div>
+                <div className="sample-btns">
+                  <button className="btn-ghost btn-sm" onClick={downloadSampleCSV}>
+                    ↓ Sample CSV
+                  </button>
+                  <button className="btn-ghost btn-sm" onClick={downloadSampleXLSX}>
+                    ↓ Sample Excel
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div
@@ -122,7 +166,7 @@ export default function NewPayrollRun() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={onFileChange}
                 style={{ display: 'none' }}
               />
@@ -137,9 +181,9 @@ export default function NewPayrollRun() {
               ) : (
                 <div className="dropzone-empty">
                   <span className="dropzone-icon">⬆</span>
-                  <div className="dropzone-text">Drop your CSV here or click to browse</div>
+                  <div className="dropzone-text">Drop your CSV or Excel file here or click to browse</div>
                   <div className="dropzone-hint">
-                    Required columns: <code>wallet_address</code>, <code>amount</code> · Optional: <code>name</code>
+                    Accepts .csv, .xlsx, .xls · Required columns: <code>wallet_address</code>, <code>amount</code> · Optional: <code>name</code>
                   </div>
                 </div>
               )}
@@ -155,7 +199,7 @@ export default function NewPayrollRun() {
 
               {errors.length > 0 && (
                 <div className="error-banner">
-                  <strong>⚠ Validation errors found — fix your CSV before sending</strong>
+                  <strong>⚠ Validation errors found — fix your file before sending</strong>
                   <ul className="error-list">
                     {errors.map((e, i) => (
                       <li key={i}>Line {e.line}: {e.message}</li>
@@ -200,7 +244,7 @@ export default function NewPayrollRun() {
 
               <div className="total-row">
                 <span className="total-label">Total Payout</span>
-                <span className="total-amount">${totalAmount.toLocaleString()} USDC</span>
+                <span className="total-amount">${totalAmount.toLocaleString()} {selectedToken}</span>
               </div>
             </div>
           )}
@@ -237,12 +281,12 @@ export default function NewPayrollRun() {
               </div>
               <div className="summary-row">
                 <span>Total Amount</span>
-                <span className="summary-amount">${totalAmount.toLocaleString()} USDC</span>
+                <span className="summary-amount">${totalAmount.toLocaleString()} {selectedToken}</span>
               </div>
               <div className="summary-row">
                 <span>Your Balance</span>
                 <span className={hasBalance || totalAmount === 0 ? '' : 'text-error'}>
-                  ${parseFloat(usdcBalance).toLocaleString()} USDC
+                  ${parseFloat(tokenBalance).toLocaleString()} {selectedToken}
                 </span>
               </div>
               <div className="summary-row">
@@ -272,13 +316,13 @@ export default function NewPayrollRun() {
                   Sending Payroll…
                 </>
               ) : (
-                `Send Payroll → ${validRows.length > 0 ? `$${totalAmount.toLocaleString()} USDC` : ''}`
+                `Send Payroll → ${validRows.length > 0 ? `$${totalAmount.toLocaleString()} ${selectedToken}` : ''}`
               )}
             </button>
 
             <div className="sidebar-checks">
               <div className={`check-item ${validRows.length > 0 ? 'check-ok' : ''}`}>
-                {validRows.length > 0 ? '✓' : '○'} CSV uploaded
+                {validRows.length > 0 ? '✓' : '○'} File uploaded
               </div>
               <div className={`check-item ${errors.length === 0 && rows.length > 0 ? 'check-ok' : ''}`}>
                 {errors.length === 0 && rows.length > 0 ? '✓' : '○'} No validation errors

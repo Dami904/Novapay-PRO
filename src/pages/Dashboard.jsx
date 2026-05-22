@@ -6,7 +6,7 @@ function shortAddress(addr) {
 }
 
 export default function Dashboard() {
-  const { stats, account, usdcBalance, history, demoMode } = useWeb3()
+  const { stats, account, tokenBalance, selectedToken, history, demoMode } = useWeb3()
   const navigate = useNavigate()
 
   const recentRuns = history.slice(0, 3)
@@ -32,7 +32,7 @@ export default function Dashboard() {
           <div className="stat-value">
             ${stats.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="stat-sub">USDC · all time</div>
+          <div className="stat-sub">all time</div>
         </div>
 
         <div className="stat-card">
@@ -42,8 +42,8 @@ export default function Dashboard() {
         </div>
 
         <div className="stat-card">
-          <div className="stat-label">USDC Balance</div>
-          <div className="stat-value">${parseFloat(usdcBalance).toLocaleString()}</div>
+          <div className="stat-label">{selectedToken} Balance</div>
+          <div className="stat-value">${parseFloat(tokenBalance).toLocaleString()}</div>
           <div className="stat-sub">available to pay</div>
         </div>
 
@@ -97,7 +97,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="recent-right">
-                  <div className="recent-amount">${run.totalAmount.toLocaleString()} USDC</div>
+                  <div className="recent-amount">${run.totalAmount.toLocaleString()} {run.token || 'USDC'}</div>
                   {run.explorerUrl && (
                     <a
                       href={run.explorerUrl}

@@ -1,13 +1,14 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useWeb3 } from '../context/Web3Context'
+import { NOVAPAY_CONTRACT_ADDRESS } from '../utils/contractABI'
 
 function shortAddress(addr) {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-export default function Navbar() {
-  const { account, usdcBalance, isCorrectNetwork, networkError, disconnect, switchToMorph, demoMode } = useWeb3()
+export default function Navbar({ theme, toggleTheme }) {
+  const { account, tokenBalance, selectedToken, isCorrectNetwork, networkError, disconnect, switchToMorph, demoMode, toggleDemoMode } = useWeb3()
   const location = useLocation()
   const [switching, setSwitching] = useState(false)
 
@@ -22,6 +23,8 @@ export default function Navbar() {
       setSwitching(false)
     }
   }
+
+  const isZeroContract = NOVAPAY_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000'
 
   if (!account) return null
 
@@ -52,9 +55,29 @@ export default function Navbar() {
         </div>
 
         <div className="navbar-right">
-          {demoMode && (
-            <span className="demo-badge">DEMO MODE</span>
-          )}
+          <div className="mode-toggle">
+            <button
+              className={`mode-toggle-option${demoMode ? ' active-demo' : ''}`}
+              onClick={() => !demoMode && toggleDemoMode()}
+            >
+              DEMO
+            </button>
+            <button
+              className={`mode-toggle-option${!demoMode ? ' active-live' : ''}`}
+              onClick={() => demoMode && !isZeroContract && toggleDemoMode()}
+              disabled={isZeroContract}
+              title={isZeroContract ? 'Deploy the contract first to enable Live mode' : undefined}
+            >
+              LIVE
+            </button>
+          </div>
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
           {isCorrectNetwork ? (
             <div className="network-badge ok">
               <span className="network-dot" />
@@ -72,8 +95,8 @@ export default function Navbar() {
             </button>
           )}
           <div className="usdc-balance">
-            <span className="balance-label">USDC</span>
-            <span className="balance-value">{parseFloat(usdcBalance).toLocaleString()}</span>
+            <span className="balance-label">{selectedToken}</span>
+            <span className="balance-value">{parseFloat(tokenBalance).toLocaleString()}</span>
           </div>
           <div className="wallet-chip">
             <span className="wallet-dot" />

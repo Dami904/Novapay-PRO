@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWeb3 } from '../context/Web3Context'
-import { exportHistoryToCSV, exportBatchToCSV } from '../utils/csvExporter'
+import { exportHistoryToCSV, exportHistoryToXLSX, exportBatchToCSV, exportBatchToXLSX } from '../utils/csvExporter'
 
 export default function PayrollHistory() {
   const { history } = useWeb3()
@@ -36,9 +36,14 @@ export default function PayrollHistory() {
         </div>
         <div className="header-actions">
           {filtered.length > 0 && (
-            <button className="btn-export" onClick={() => exportHistoryToCSV(filtered)}>
-              ↓ Export All CSV
-            </button>
+            <>
+              <button className="btn-export" onClick={() => exportHistoryToCSV(filtered)}>
+                ↓ Export CSV
+              </button>
+              <button className="btn-export" onClick={() => exportHistoryToXLSX(filtered)}>
+                ↓ Export Excel
+              </button>
+            </>
           )}
           <button className="btn-primary" onClick={() => navigate('/payroll/new')}>
             + New Payroll
@@ -122,7 +127,7 @@ export default function PayrollHistory() {
                   </div>
                 </div>
                 <div className="history-right">
-                  <div className="history-amount">${run.totalAmount.toLocaleString()} USDC</div>
+                  <div className="history-amount">${run.totalAmount.toLocaleString()} {run.token || 'USDC'}</div>
                   <div className="history-actions">
                     {run.explorerUrl && (
                       <a
@@ -140,6 +145,12 @@ export default function PayrollHistory() {
                       onClick={(e) => { e.stopPropagation(); exportBatchToCSV(run) }}
                     >
                       ↓ CSV
+                    </button>
+                    <button
+                      className="btn-export btn-sm"
+                      onClick={(e) => { e.stopPropagation(); exportBatchToXLSX(run) }}
+                    >
+                      ↓ Excel
                     </button>
                     <span className="expand-arrow">{expanded === run.id ? '▲' : '▼'}</span>
                   </div>

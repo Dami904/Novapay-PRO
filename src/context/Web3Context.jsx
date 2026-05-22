@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { ethers } from 'ethers'
 import {
   NOVAPAY_CONTRACT_ADDRESS,
-  USDC_CONTRACT_ADDRESS,
+  TOKENS,
   NOVAPAY_ABI,
   ERC20_ABI,
   MORPH_TESTNET,
@@ -11,7 +11,8 @@ import {
 const Web3Context = createContext(null)
 
 const STORAGE_KEY = 'novapay_history'
-const DEMO_MODE = NOVAPAY_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000'
+const DEMO_STORAGE_KEY = 'novapay_demo_mode'
+const IS_ZERO_CONTRACT = NOVAPAY_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000'
 
 const MOCK_HISTORY = [
   {
@@ -20,6 +21,7 @@ const MOCK_HISTORY = [
     timestamp: new Date('2026-04-30').getTime(),
     recipientCount: 5,
     totalAmount: 12500,
+    token: 'USDC',
     txHash: '0xabc123def456789000000000000000000000000000000000000000000000001',
     explorerUrl: 'https://explorer-hoodi.morphl2.io/tx/0xabc123',
     recipients: [
@@ -36,6 +38,7 @@ const MOCK_HISTORY = [
     timestamp: new Date('2026-04-15').getTime(),
     recipientCount: 2,
     totalAmount: 4000,
+    token: 'USDC',
     txHash: '0xdef456abc789000000000000000000000000000000000000000000000000002',
     explorerUrl: 'https://explorer-hoodi.morphl2.io/tx/0xdef456',
     recipients: [
@@ -46,21 +49,45 @@ const MOCK_HISTORY = [
 ]
 
 export function Web3Provider({ children }) {
+  const [demoMode, setDemoMode] = useState(() => {
+    const stored = localStorage.getItem(DEMO_STORAGE_KEY)
+    return stored !== null ? stored === 'true' : IS_ZERO_CONTRACT
+  })
   const [account, setAccount] = useState(null)
   const [provider, setProvider] = useState(null)
   const [signer, setSigner] = useState(null)
   const [isCorrectNetwork, setIsCorrectNetwork] = useState(false)
-  const [usdcBalance, setUsdcBalance] = useState('0')
+  const [selectedToken, setSelectedToken] = useState('USDC')
+  const [tokenBalance, setTokenBalance] = useState('0')
   const [history, setHistory] = useState(() => {
+    const storedMode = localStorage.getItem(DEMO_STORAGE_KEY)
+    const initDemo = storedMode !== null ? storedMode === 'true' : IS_ZERO_CONTRACT
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       const parsed = stored ? JSON.parse(stored) : []
-      return DEMO_MODE ? [...parsed, ...MOCK_HISTORY] : parsed
+      return initDemo ? [...parsed, ...MOCK_HISTORY] : parsed
     } catch {
-      return DEMO_MODE ? MOCK_HISTORY : []
+      return initDemo ? MOCK_HISTORY : []
     }
   })
   const [networkError, setNetworkError] = useState(null)
+
+  const toggleDemoMode = useCallback(() => {
+    setDemoMode((prev) => {
+      const next = !prev
+      localStorage.setItem(DEMO_STORAGE_KEY, String(next))
+      if (next) {
+        setHistory((h) => {
+          const hasMock = h.some((item) => item.id.startsWith('mock-'))
+          return hasMock ? h : [...h, ...MOCK_HISTORY]
+        })
+        setTokenBalance('50000')
+      } else {
+        setHistory((h) => h.filter((item) => !item.id.startsWith('mock-')))
+      }
+      return next
+    })
+  }, [])
 
   const checkNetwork = useCallback(async (prov) => {
     const network = await prov.getNetwork()
@@ -71,16 +98,17 @@ export function Web3Provider({ children }) {
     return correct
   }, [])
 
-  const fetchUSDCBalance = useCallback(async (addr, prov) => {
-    if (DEMO_MODE) { setUsdcBalance('50000'); return }
+  const fetchTokenBalance = useCallback(async (addr, prov, tokenKey) => {
+    if (demoMode) { setTokenBalance('50000'); return }
     try {
-      const usdc = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, prov)
-      const bal = await usdc.balanceOf(addr)
-      setUsdcBalance(ethers.formatUnits(bal, 6))
+      const cfg = TOKENS[tokenKey] || TOKENS.USDC
+      const token = new ethers.Contract(cfg.address, ERC20_ABI, prov)
+      const bal = await token.balanceOf(addr)
+      setTokenBalance(ethers.formatUnits(bal, cfg.decimals))
     } catch {
-      setUsdcBalance('0')
+      setTokenBalance('0')
     }
-  }, [])
+  }, [demoMode])
 
   const connect = useCallback(async () => {
     if (!window.ethereum) throw new Error('MetaMask not installed. Please install MetaMask to use NovaPay.')
@@ -94,8 +122,17 @@ export function Web3Provider({ children }) {
     setAccount(accounts[0])
 
     const correct = await checkNetwork(prov)
-    if (correct) await fetchUSDCBalance(accounts[0], prov)
-  }, [checkNetwork, fetchUSDCBalance])
+    if (correct) await fetchTokenBalance(accounts[0], prov, selectedToken)
+  }, [checkNetwork, fetchTokenBalance, selectedToken])
+
+  // Re-fetch (or mock) balance whenever token, demo mode, or connection state changes
+  useEffect(() => {
+    if (demoMode) {
+      setTokenBalance('50000')
+    } else if (account && provider && isCorrectNetwork) {
+      fetchTokenBalance(account, provider, selectedToken)
+    }
+  }, [selectedToken, demoMode, account, isCorrectNetwork]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const switchToMorph = useCallback(async () => {
     await window.ethereum.request({
@@ -105,20 +142,21 @@ export function Web3Provider({ children }) {
   }, [])
 
   const sendPayroll = useCallback(
-    async ({ recipients, amounts, label }) => {
-      if (DEMO_MODE) {
+    async ({ recipients, amounts, label, rows }) => {
+      if (demoMode) {
         await new Promise((r) => setTimeout(r, 2500))
         const mockTx = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`
         const totalAmount = amounts.reduce((s, a) => s + a, 0)
         const batch = {
           id: Date.now().toString(),
           label,
+          token: selectedToken,
           timestamp: Date.now(),
           recipientCount: recipients.length,
           totalAmount,
           txHash: mockTx,
           explorerUrl: `https://explorer-hoodi.morphl2.io/tx/${mockTx}`,
-          recipients: recipients.map((addr, i) => ({ address: addr, name: `Recipient ${i + 1}`, amount: amounts[i] })),
+          recipients: recipients.map((addr, i) => ({ address: addr, name: rows?.[i]?.name || `Recipient ${i + 1}`, amount: amounts[i] })),
         }
         setHistory((prev) => {
           const updated = [batch, ...prev]
@@ -129,21 +167,27 @@ export function Web3Provider({ children }) {
         return { txHash: mockTx, explorerUrl: batch.explorerUrl }
       }
 
-      const contract = new ethers.Contract(NOVAPAY_CONTRACT_ADDRESS, NOVAPAY_ABI, signer)
-      const usdc = new ethers.Contract(USDC_CONTRACT_ADDRESS, ERC20_ABI, signer)
+      if (IS_ZERO_CONTRACT) {
+        throw new Error('Contract not deployed — switch to Demo mode to test PayFlow')
+      }
 
-      const totalWei = amounts.reduce((s, a) => s + ethers.parseUnits(a.toString(), 6), BigInt(0))
-      const approveTx = await usdc.approve(NOVAPAY_CONTRACT_ADDRESS, totalWei)
+      const tokenCfg = TOKENS[selectedToken]
+      const contract = new ethers.Contract(NOVAPAY_CONTRACT_ADDRESS, NOVAPAY_ABI, signer)
+      const tokenContract = new ethers.Contract(tokenCfg.address, ERC20_ABI, signer)
+
+      const totalWei = amounts.reduce((s, a) => s + ethers.parseUnits(a.toString(), tokenCfg.decimals), BigInt(0))
+      const approveTx = await tokenContract.approve(NOVAPAY_CONTRACT_ADDRESS, totalWei)
       await approveTx.wait()
 
-      const amountsWei = amounts.map((a) => ethers.parseUnits(a.toString(), 6))
-      const tx = await contract.batchPayout(recipients, amountsWei, label)
+      const amountsWei = amounts.map((a) => ethers.parseUnits(a.toString(), tokenCfg.decimals))
+      const tx = await contract.batchPayout(tokenCfg.address, recipients, amountsWei, label)
       const receipt = await tx.wait()
 
       const totalAmount = amounts.reduce((s, a) => s + a, 0)
       const batch = {
         id: receipt.hash,
         label,
+        token: selectedToken,
         timestamp: Date.now(),
         recipientCount: recipients.length,
         totalAmount,
@@ -158,10 +202,10 @@ export function Web3Provider({ children }) {
         return updated
       })
 
-      await fetchUSDCBalance(account, provider)
+      await fetchTokenBalance(account, provider, selectedToken)
       return { txHash: receipt.hash, explorerUrl: batch.explorerUrl }
     },
-    [signer, account, provider, fetchUSDCBalance]
+    [signer, account, provider, fetchTokenBalance, demoMode, selectedToken]
   )
 
   const disconnect = useCallback(() => {
@@ -169,7 +213,7 @@ export function Web3Provider({ children }) {
     setProvider(null)
     setSigner(null)
     setIsCorrectNetwork(false)
-    setUsdcBalance('0')
+    setTokenBalance('0')
   }, [])
 
   useEffect(() => {
@@ -195,7 +239,7 @@ export function Web3Provider({ children }) {
 
   return (
     <Web3Context.Provider
-      value={{ account, provider, signer, isCorrectNetwork, usdcBalance, history, networkError, stats, demoMode: DEMO_MODE, connect, disconnect, switchToMorph, sendPayroll }}
+      value={{ account, provider, signer, isCorrectNetwork, tokenBalance, selectedToken, setSelectedToken, history, networkError, stats, demoMode, toggleDemoMode, connect, disconnect, switchToMorph, sendPayroll }}
     >
       {children}
     </Web3Context.Provider>
