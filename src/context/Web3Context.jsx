@@ -93,7 +93,7 @@ export function Web3Provider({ children }) {
     const network = await prov.getNetwork()
     const correct = network.chainId === BigInt(2910)
     setIsCorrectNetwork(correct)
-    if (!correct) setNetworkError('Please switch to Morph Hoodi')
+    if (!correct) setNetworkError('Please switch to the Morph Hoodi network.')
     else setNetworkError(null)
     return correct
   }, [])
@@ -111,7 +111,7 @@ export function Web3Provider({ children }) {
   }, [demoMode])
 
   const connect = useCallback(async () => {
-    if (!window.ethereum) throw new Error('MetaMask not installed. Please install MetaMask to use NovaPay.')
+    if (!window.ethereum) throw new Error('Please install a wallet app to continue.')
 
     const prov = new ethers.BrowserProvider(window.ethereum)
     const accounts = await prov.send('eth_requestAccounts', [])
@@ -168,7 +168,7 @@ export function Web3Provider({ children }) {
       }
 
       if (IS_ZERO_CONTRACT) {
-        throw new Error('Contract not deployed — switch to Demo mode to test PayFlow')
+        throw new Error("This feature isn't ready yet. Try Demo mode to explore the app.")
       }
 
       const tokenCfg = TOKENS[selectedToken]

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { useWeb3 } from '../context/Web3Context'
 import { parsePayrollCSV } from '../utils/csvParser'
+import { getFriendlyErrorMessage } from '../utils/userMessages'
 
 const SAMPLE_ROWS = [
   { wallet_address: '0x1234567890123456789012345678901234567890', name: 'Alice Chen', amount: 3000 },
@@ -32,14 +33,20 @@ export default function NewPayrollRun() {
     if (!file) return
     const ext = file.name.split('.').pop().toLowerCase()
     if (!['csv', 'xlsx', 'xls'].includes(ext)) {
-      setSendError('Please upload a .csv, .xlsx, or .xls file')
+      setSendError('Please upload a CSV or Excel file.')
       return
     }
     setSendError('')
     setFileName(file.name)
-    const { rows: parsed, errors: errs } = await parsePayrollCSV(file)
-    setRows(parsed)
-    setErrors(errs)
+    try {
+      const { rows: parsed, errors: errs } = await parsePayrollCSV(file)
+      setRows(parsed)
+      setErrors(errs)
+    } catch (err) {
+      setRows([])
+      setErrors([])
+      setSendError(getFriendlyErrorMessage(err, 'We could not read that file. Please try another one.'))
+    }
   }, [])
 
   function onFileChange(e) {
@@ -108,7 +115,7 @@ export default function NewPayrollRun() {
         },
       })
     } catch (err) {
-      setSendError(err.message || 'Transaction failed')
+      setSendError(getFriendlyErrorMessage(err, 'We could not send the payout right now. Please try again.'))
       setSending(false)
     }
   }
@@ -183,7 +190,7 @@ export default function NewPayrollRun() {
                   <span className="dropzone-icon">⬆</span>
                   <div className="dropzone-text">Drop your CSV or Excel file here or click to browse</div>
                   <div className="dropzone-hint">
-                    Accepts .csv, .xlsx, .xls · Required columns: <code>wallet_address</code>, <code>amount</code> · Optional: <code>name</code>
+                    Your file should include a wallet address and an amount for each person. You can also add names.
                   </div>
                 </div>
               )}
@@ -199,7 +206,7 @@ export default function NewPayrollRun() {
 
               {errors.length > 0 && (
                 <div className="error-banner">
-                  <strong>⚠ Validation errors found — fix your file before sending</strong>
+                  <strong>⚠ Some rows need attention before you can send this payout</strong>
                   <ul className="error-list">
                     {errors.map((e, i) => (
                       <li key={i}>Line {e.line}: {e.message}</li>
@@ -232,8 +239,8 @@ export default function NewPayrollRun() {
                         </td>
                         <td>
                           {row.hasError
-                            ? <span className="status-error">✕ Error</span>
-                            : <span className="status-ok">✓ Valid</span>
+                            ? <span className="status-error">✕ Needs attention</span>
+                            : <span className="status-ok">✓ Ready</span>
                           }
                         </td>
                       </tr>
@@ -264,7 +271,7 @@ export default function NewPayrollRun() {
                   maxLength={100}
                 />
                 <div className="label-hint">
-                  This label is emitted as an onchain event — it becomes a permanent record.
+                  This label will stay with the payout as a permanent record.
                 </div>
               </div>
             </div>
@@ -297,7 +304,7 @@ export default function NewPayrollRun() {
 
             {!hasBalance && totalAmount > 0 && (
               <div className="warning-box">
-                ⚠ Insufficient USDC balance
+                ⚠ You don't have enough USDC to send this payout
               </div>
             )}
 
@@ -325,7 +332,7 @@ export default function NewPayrollRun() {
                 {validRows.length > 0 ? '✓' : '○'} File uploaded
               </div>
               <div className={`check-item ${errors.length === 0 && rows.length > 0 ? 'check-ok' : ''}`}>
-                {errors.length === 0 && rows.length > 0 ? '✓' : '○'} No validation errors
+                {errors.length === 0 && rows.length > 0 ? '✓' : '○'} All rows are ready
               </div>
               <div className={`check-item ${label.trim() ? 'check-ok' : ''}`}>
                 {label.trim() ? '✓' : '○'} Payroll label set

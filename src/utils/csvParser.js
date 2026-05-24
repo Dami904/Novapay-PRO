@@ -62,16 +62,16 @@ function validateRows(rawRows) {
     const name     = String(row[nameKey]   ?? '').trim()
 
     if (!address) {
-      errors.push({ line: lineNum, field: 'wallet_address', message: 'Missing wallet address' })
+      errors.push({ line: lineNum, field: 'wallet_address', message: 'Add a wallet address for this row.' })
     } else if (!ethers.isAddress(address)) {
-      errors.push({ line: lineNum, field: 'wallet_address', message: `Invalid address: ${address}` })
+      errors.push({ line: lineNum, field: 'wallet_address', message: 'Enter a valid wallet address.' })
     }
 
     const amount = parseFloat(amountRaw)
     if (!amountRaw) {
-      errors.push({ line: lineNum, field: 'amount', message: 'Missing amount' })
+      errors.push({ line: lineNum, field: 'amount', message: 'Add an amount for this row.' })
     } else if (isNaN(amount) || amount <= 0) {
-      errors.push({ line: lineNum, field: 'amount', message: `Invalid amount: ${amountRaw}` })
+      errors.push({ line: lineNum, field: 'amount', message: 'Enter an amount greater than 0.' })
     }
 
     rows.push({
@@ -105,10 +105,10 @@ export function parsePayrollCSV(file) {
           )
           resolve(validateRows(normalized))
         } catch (err) {
-          reject(new Error(`Excel parse error: ${err.message}`))
+          reject(new Error('We could not read that file. Please upload a CSV or Excel file.'))
         }
       }
-      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.onerror = () => reject(new Error('We could not read that file. Please upload a CSV or Excel file.'))
       reader.readAsArrayBuffer(file)
     })
   }
@@ -119,7 +119,7 @@ export function parsePayrollCSV(file) {
       skipEmptyLines: true,
       transformHeader: normalizeHeader,
       complete: (results) => resolve(validateRows(results.data)),
-      error: (err) => reject(new Error(`CSV parse error: ${err.message}`)),
+      error: () => reject(new Error('We could not read that file. Please upload a CSV or Excel file.')),
     })
   })
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWeb3 } from '../context/Web3Context'
+import { getFriendlyErrorMessage } from '../utils/userMessages'
 
 export default function ConnectWallet() {
   const { connect, switchToMorph, isCorrectNetwork } = useWeb3()
@@ -18,17 +19,17 @@ export default function ConnectWallet() {
       }
       navigate('/dashboard')
     } catch (err) {
-      setError(err.message || 'Failed to connect wallet')
+      setError(getFriendlyErrorMessage(err, 'We could not connect your wallet. Please try again.'))
     } finally {
       setLoading(false)
     }
   }
 
   const features = [
-    { icon: '⬆', label: 'Upload CSV', desc: 'Drop in wallet addresses and amounts' },
-    { icon: '⚡', label: 'One-Click Payout', desc: 'Batch pay everyone in a single transaction' },
-    { icon: '🏷', label: 'Labeled Onchain', desc: 'Every payroll tagged as a permanent record' },
-    { icon: '📊', label: 'Export Ledger', desc: 'Audit-ready spreadsheet in seconds' },
+    { icon: '⬆', label: 'Upload CSV', desc: 'Add wallet addresses and amounts from your file' },
+    { icon: '⚡', label: 'One-Click Payout', desc: 'Pay everyone in a single transfer' },
+    { icon: '🏷', label: 'Saved With Each Run', desc: 'Every payout keeps its label for later review' },
+    { icon: '📊', label: 'Export Record', desc: 'Download a spreadsheet for your records' },
   ]
 
   return (
@@ -50,7 +51,7 @@ export default function ConnectWallet() {
             <span className="gradient-text">Actually Makes Sense.</span>
           </h1>
           <p className="hero-sub">
-            Batch USDC payouts, onchain labels, and audit-ready exports — all in one transaction.
+            Send group payments, keep a record with each run, and export everything for review.
             Built on Morph.
           </p>
 
@@ -73,7 +74,7 @@ export default function ConnectWallet() {
               )}
             </button>
             {error && <p className="connect-error">⚠ {error}</p>}
-            <p className="connect-hint">MetaMask or WalletConnect · Morph Hoodi</p>
+            <p className="connect-hint">Use your wallet to connect on Morph Hoodi</p>
           </div>
         </div>
 
@@ -94,7 +95,7 @@ export default function ConnectWallet() {
             <span className="chain-dot" />
             Morph Hoodi · Chain ID 2910
           </span>
-          <span>USDC · Solidity · ethers.js</span>
+          <span>USDC payouts · Built for Morph Hoodi</span>
         </div>
       </div>
     </div>
