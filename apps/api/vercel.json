@@ -1,4 +1,0 @@
-{
-  "buildCommand": "echo 'API is deployed on Render, not Vercel'",
-  "installCommand": "echo skip"
-}
