@@ -3,7 +3,7 @@ services:
     name: novapay-api
     runtime: node
     plan: free
-    buildCommand: npm ci && npm -w apps/api run db:generate && npm run api:build
+    buildCommand: npm ci --include=dev && npm -w apps/api run db:generate && npm run api:build
     startCommand: npm run api:start
     envVars:
       - key: NODE_ENV
