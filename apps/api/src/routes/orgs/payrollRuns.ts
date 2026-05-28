@@ -99,7 +99,7 @@ export default async function payrollRunRoutes(app: FastifyInstance) {
       where: { orgId: request.currentOrgId, walletAddress: { in: wallets } },
       select: { walletAddress: true, terminationDate: true, isActive: true },
     });
-    const dirMap = new Map(dirEmployees.map((e) => [e.walletAddress, e]));
+    const dirMap = new Map(dirEmployees.map((e) => [e.walletAddress, e] as [string, typeof dirEmployees[number]]));
     const today  = new Date(); today.setHours(0, 0, 0, 0);
 
     const recipients = parsed.recipients.map((r) => {
