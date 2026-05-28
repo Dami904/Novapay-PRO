@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────────────────────────────────────
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String?  @map("full_name")
+  avatarUrl    String?  @map("avatar_url")
+  isSuperAdmin Boolean  @default(false) @map("is_super_admin")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // relations
+  orgMembers       OrgMember[]
+  invitationsSent  OrgInvitation[]  @relation("InvitedBy")
+  submittedRuns    PayrollRun[]     @relation("SubmittedBy")
+  reviewedRuns     PayrollRun[]     @relation("ReviewedBy")
+  executedRuns     PayrollRun[]     @relation("ExecutedBy")
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  refreshTokens    RefreshToken[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REFRESH TOKENS
+// ─────────────────────────────────────────────────────────────────────────────
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORGANIZATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+model Organization {
+  id                 String   @id @default(uuid())
+  name               String
+  slug               String   @unique  // "Acme Corp" → "acme-corp" (used in URLs)
+  plan               String   @default("free") // "free" | "starter" | "growth"
+  walletAddress      String?  @map("wallet_address")
+  walletLabel        String?  @map("wallet_label")
+  discordWebhookUrl  String?  @map("discord_webhook_url")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // relations
+  members       OrgMember[]
+  invitations   OrgInvitation[]
+  employees     Employee[]
+  payrollRuns   PayrollRun[]
+  schedules     PayrollSchedule[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  subscription  SubscriptionPlan?
+
+  @@map("organizations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORG MEMBERS
+// ─────────────────────────────────────────────────────────────────────────────
+model OrgMember {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  userId     String   @map("user_id")
+  role       String   // "owner" | "admin" | "finance" | "hr" | "viewer"
+  invitedBy  String?  @map("invited_by")
+  joinedAt   DateTime @default(now()) @map("joined_at")
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@map("org_members")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORG INVITATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+model OrgInvitation {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  email      String
+  role       String
+  token      String   @unique   // secure random token sent in email
+  invitedBy  String   @map("invited_by")
+  accepted   Boolean  @default(false)
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  inviter   User         @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@map("org_invitations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EMPLOYEES (directory)
+// ─────────────────────────────────────────────────────────────────────────────
+model Employee {
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  fullName       String   @map("full_name")
+  email          String?
+  walletAddress  String   @map("wallet_address")
+  department     String?
+  employmentType  String    @default("employee") @map("employment_type") // "employee" | "contractor"
+  terminationDate DateTime? @map("termination_date")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  org        Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  recipients PayrollRunRecipient[]
+
+  @@unique([orgId, walletAddress])
+  @@map("employees")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYROLL RUNS
+// ─────────────────────────────────────────────────────────────────────────────
+model PayrollRun {
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  label          String
+  token          String    @default("USDC")   // "USDC" | "USDT"
+  status         String    @default("draft")
+  // "draft" | "pending_approval" | "approved" | "rejected" | "executing" | "complete" | "failed"
+
+  recipientCount Int?      @map("recipient_count")
+  totalAmount    Decimal?  @map("total_amount") @db.Decimal(20, 6)
+
+  // workflow actors
+  submittedBy  String?   @map("submitted_by")
+  submittedAt  DateTime? @map("submitted_at")
+  reviewedBy   String?   @map("reviewed_by")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNote   String?   @map("review_note")  // rejection reason
+  executedBy   String?   @map("executed_by")
+  executedAt   DateTime? @map("executed_at")
+
+  // on-chain data
+  txHash      String?  @map("tx_hash")
+  chainId     Int      @default(2910) @map("chain_id")
+  explorerUrl String?  @map("explorer_url")
+
+  // csv storage — Option A + B combined
+  csvFilename String?  @map("csv_filename")    // original filename e.g. "april-payroll.csv"
+  csvRaw      String?  @map("csv_raw")         // full raw CSV text stored in DB (Option B)
+  csvStorageKey String? @map("csv_storage_key") // R2 key — null until R2 is added (future)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // relations
+  org          Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  submitter    User?                @relation("SubmittedBy", fields: [submittedBy], references: [id])
+  reviewer     User?                @relation("ReviewedBy", fields: [reviewedBy], references: [id])
+  executor     User?                @relation("ExecutedBy", fields: [executedBy], references: [id])
+  recipients   PayrollRunRecipient[]
+
+  @@map("payroll_runs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYROLL RUN RECIPIENTS
+// ─────────────────────────────────────────────────────────────────────────────
+model PayrollRunRecipient {
+  id              String    @id @default(uuid())
+  runId           String    @map("run_id")
+  employeeId      String?   @map("employee_id")      // null if not in directory
+  fullName        String    @map("full_name")
+  walletAddress   String    @map("wallet_address")
+  email           String?                            // from CSV if provided
+  amount          Decimal   @db.Decimal(20, 6)
+  rowIndex        Int       @map("row_index")         // preserves original CSV row order
+  terminationDate DateTime? @map("termination_date")  // from CSV; row is excluded if date < today
+
+  run      PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employee Employee?  @relation(fields: [employeeId], references: [id])
+
+  @@map("payroll_run_recipients")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYROLL SCHEDULES (recurring auto-draft creation)
+// ─────────────────────────────────────────────────────────────────────────────
+model PayrollSchedule {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  label       String                           // template label e.g. "Monthly Payroll"
+  token       String   @default("USDC")
+  cadence     String                           // "weekly" | "biweekly" | "monthly"
+  nextRunAt   DateTime @map("next_run_at")     // when the worker next fires a draft
+  isActive    Boolean  @default(true)  @map("is_active")
+  csvRaw      String?  @map("csv_raw")         // template CSV stored in DB
+  csvFilename String?  @map("csv_filename")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("payroll_schedules")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOGS
+// ─────────────────────────────────────────────────────────────────────────────
+model AuditLog {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  actorId      String   @map("actor_id")
+  action       String
+  // "payroll_run.created" | "payroll_run.submitted" | "payroll_run.approved"
+  // "payroll_run.rejected" | "payroll_run.executed" | "member.invited"
+  // "member.role_changed" | "employee.added" | "employee.updated" etc.
+  resourceType String?  @map("resource_type")  // "payroll_run" | "employee" | "org_member"
+  resourceId   String?  @map("resource_id")
+  metadata     Json?                            // flexible extra context (before/after values)
+  ipAddress    String?  @map("ip_address")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor User         @relation(fields: [actorId], references: [id])
+
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBSCRIPTION PLANS
+// ─────────────────────────────────────────────────────────────────────────────
+model SubscriptionPlan {
+  id                    String    @id @default(uuid())
+  orgId                 String    @unique @map("org_id")
+  plan                  String    @default("free")
+  status                String    @default("active") // "active" | "past_due" | "cancelled"
+  stripeCustomerId      String?   @map("stripe_customer_id")
+  stripeSubscriptionId  String?   @map("stripe_subscription_id")
+  currentPeriodStart    DateTime? @map("current_period_start")
+  currentPeriodEnd      DateTime? @map("current_period_end")
+  payrollRunsUsed       Int       @default(0) @map("payroll_runs_used")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("subscription_plans")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+model Notification {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  userId       String   @map("user_id")
+  type         String
+  // "payroll_submitted" | "payroll_approved" | "payroll_rejected"
+  // "payroll_executed" | "member_invited" | "plan_limit_approaching"
+  title        String
+  body         String?
+  resourceType String?  @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  read         Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}

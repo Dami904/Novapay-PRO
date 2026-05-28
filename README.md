@@ -1,87 +1,150 @@
-# NovaPay — Web3 Payroll That Actually Makes Sense
+# NovaPay — Web3 Payroll for DAOs and Web3 Startups
 
-Onchain batch payroll and accounting for Web3 startups and DAOs. Upload a CSV, pay everyone in one USDC transaction, tag it onchain, export the ledger. Built on Morph.
+Multi-tenant B2B payroll platform. Upload a CSV, route it through an approval workflow, batch-pay everyone in a single USDC/USDT transaction on Morph L2, and get an on-chain proof of payment with a full audit trail.
 
 ---
 
-## Quick Start (for teammates cloning this repo)
+## What It Does
 
-### Prerequisites
-- [Node.js](https://nodejs.org/) v18 or higher
-- [npm](https://npmjs.com/) v9 or higher
-- [MetaMask](https://metamask.io/) browser extension
-- Morph Hoodi configured in MetaMask (details below)
+- **Team-based approval workflow** — HR uploads a CSV draft → Finance approves → Admin executes on-chain
+- **Batch on-chain payroll** — one `batchPayout()` transaction pays up to 500 recipients simultaneously
+- **Employee directory** — manage contractor and employee records; termination dates auto-exclude expired contracts
+- **Recurring schedules** — set weekly/biweekly/monthly payroll; drafts are auto-created from a stored template
+- **Role-based access** — 5 roles (owner, admin, finance, hr, viewer) with granular per-action permissions
+- **Public proof of payment** — share `/proof/:txHash` with anyone to verify a payroll was executed on-chain
+- **Notifications** — in-app, email (Resend), and optional Discord webhook per org
+- **Super-admin console** — platform-wide stats, org/user management, plan overrides
 
-> **No `.env` file needed.** The frontend runs fully in Demo Mode out of the box — no wallet, no contract, no real funds required. Contract deployment is only needed for live transactions.
+---
 
-### 1. Clone and install
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, React Router 6, TanStack Query, ethers.js v6, Vite |
+| Backend | Fastify (TypeScript), Zod validation |
+| Database | PostgreSQL via Neon (serverless) + Prisma ORM |
+| Queue / Jobs | BullMQ + Redis (Upstash) |
+| Email | Resend |
+| Blockchain | Morph Hoodi L2 (EVM-compatible) |
+| Auth | JWT (15 min) + httpOnly refresh tokens (30 days) |
+| Testing | Vitest — 113 unit tests + 98 integration tests |
+
+---
+
+## Quick Start
+
+Requires **Node.js v18+**, **npm v9+**, and accounts on [Neon](https://neon.tech), [Upstash](https://upstash.com), and [Resend](https://resend.com).
+
+See [SETUP.md](SETUP.md) for the complete step-by-step guide.
 
 ```bash
 git clone https://github.com/Dami904/NovaPay.git
 cd NovaPay
-npm install
-```
+npm install                          # installs frontend + API dependencies
 
-### 2. Start the dev server
+# Terminal 1 — API (port 3001)
+npm run api:dev
 
-```bash
+# Terminal 2 — Frontend (port 5173)
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-### 3. Build for production
-
-```bash
-npm run build
-npm run preview   # preview the production build locally
-```
+Open [http://localhost:5173](http://localhost:5173).
 
 ---
 
-## Connecting MetaMask to Morph Hoodi
+## App Routes
 
-Add the network manually in MetaMask:
-
-| Field | Value |
+### Public
+| Route | Description |
 |---|---|
-| Network Name | Morph Hoodi |
-| RPC URL | `https://rpc-hoodi.morphl2.io` |
-| Chain ID | `2910` |
-| Currency Symbol | `ETH` |
-| Block Explorer | `https://explorer-hoodi.morphl2.io` |
+| `/` | Landing page |
+| `/login` | Sign in |
+| `/signup` | Create account + org |
+| `/invite` | Accept org invitation |
+| `/proof/:txHash` | Public payroll verification (no login required) |
 
-Or click **"Switch to Morph"** in the app — it will prompt MetaMask to add it automatically.
+### Protected (requires login)
+| Route | Description |
+|---|---|
+| `/dashboard` | Stats, recent activity, quick actions |
+| `/payroll/new` | Upload CSV → preview → submit for approval |
+| `/payroll/:id` | Run detail, recipients, state-change actions |
+| `/history` | Full payroll ledger, search, CSV export |
+| `/approval-queue` | Pending runs awaiting review (owner / admin / finance) |
+| `/employees` | Employee directory, bulk import |
+| `/members` | Team members, invite flow |
+| `/settings` | Org settings, Discord webhook, signing wallet |
+
+### Super-admin only
+| Route | Description |
+|---|---|
+| `/admin` | Platform dashboard — org count, user count, run stats |
+| `/admin/orgs` | All organisations — search, plan override, delete |
+| `/admin/users` | All users — search, grant/revoke super-admin |
 
 ---
 
-## Contract Setup (required before live transactions work)
+## Payroll Lifecycle
 
-The app ships in **Demo Mode** by default (no real contract needed — transactions are simulated). To connect a real deployed contract:
-
-1. Deploy `NovaPay.sol` to Morph Hoodi
-2. Note the deployed contract address
-3. Note the USDC token address on Morph Hoodi
-4. Open [`src/utils/contractABI.js`](src/utils/contractABI.js) and update:
-
-```js
-export const NOVAPAY_CONTRACT_ADDRESS = '0xYourNovaPayContractAddress'
-export const USDC_CONTRACT_ADDRESS    = '0xYourUSDCTokenAddress'
+```
+draft → pending_approval → approved → executing → complete
+                        ↘ rejected (terminal)       ↘ failed (terminal)
 ```
 
-Once these are non-zero addresses, Demo Mode turns off automatically and the app calls real contracts.
+Each transition is enforced server-side and written to the immutable audit log.
 
 ---
 
-## Expected Smart Contract Interface
+## Role Permissions
 
-The frontend expects this Solidity interface (from `contracts/PayFlow.sol`):
+| Action | owner | admin | finance | hr | viewer |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Create / submit draft | ✓ | ✓ | ✓ | ✓ | — |
+| Approve / reject | ✓ | ✓ | ✓ | — | — |
+| Execute on-chain | ✓ | ✓ | — | — | — |
+| Manage employees | ✓ | ✓ | — | ✓ | — |
+| Manage members | ✓ | ✓ | — | — | — |
+| View audit log | ✓ | ✓ | — | — | — |
+| Delete org | ✓ | — | — | — | — |
+
+> **Minimum viable org:** A single `owner` account can run the full payroll lifecycle alone — create draft, approve, and execute. The `hr` and `viewer` roles exist purely for delegation in larger teams and are never required.
+
+---
+
+## CSV Format
+
+**Payroll CSV** (for creating a payroll run):
+
+| Column | Required | Aliases accepted |
+|---|---|---|
+| `wallet_address` | Yes | `address`, `wallet` |
+| `amount` | Yes | `usdc_amount`, `usdc`, `usdt_amount`, `usdt` |
+| `name` | No | `employee_name`, `employee`, `full_name` |
+| `termination_date` | No | `termination`, `contract_end`, `end_date`, `expiry_date` |
+
+Rows with a past `termination_date` are automatically excluded and returned in a separate `excluded[]` array. If all rows are expired the upload is rejected with 422.
+
+**Employee import CSV**:
+
+| Column | Required | Aliases |
+|---|---|---|
+| `wallet_address` | Yes | `wallet`, `address` |
+| `full_name` | Yes | `name` |
+| `email`, `department`, `employment_type` | No | — |
+
+---
+
+## Smart Contract
+
+**Network:** Morph Hoodi (Chain ID 2910)
 
 ```solidity
 function batchPayout(
-    address            token,        // ERC20 token address (USDC or USDT)
+    address            token,        // USDC or USDT address
     address[] calldata recipients,
-    uint256[] calldata amounts,      // in token units (6 decimals for USDC/USDT)
+    uint256[] calldata amounts,      // 6 decimals
     string    calldata label
 ) external;
 
@@ -94,59 +157,7 @@ event PayrollBatch(
 );
 ```
 
-The contract pulls tokens from the caller via `transferFrom` — the frontend approves the exact total before calling `batchPayout`.
-
----
-
-## CSV Format
-
-Upload a `.csv` file with these columns:
-
-| Column | Required | Description |
-|---|---|---|
-| `wallet_address` | Yes | Recipient's EVM address |
-| `amount` | Yes | USDC amount (e.g. `3000`) |
-| `name` | No | Employee/contractor name |
-
-Column headers are case-insensitive. Aliases accepted:
-- Address: `wallet_address`, `address`, `wallet`
-- Amount: `amount`, `usdc_amount`, `usdc`
-- Name: `name`, `employee_name`, `employee`
-
-**Sample CSV** — download from the app via the "Sample CSV" button, or use:
-
-```csv
-wallet_address,name,amount
-0x1234567890123456789012345678901234567890,Alice Chen,3000
-0x2345678901234567890123456789012345678901,Bob Smith,2500
-0x3456789012345678901234567890123456789012,Carol Diaz,2500
-```
-
----
-
-## App Screens
-
-| Route | Screen |
-|---|---|
-| `/` | Connect Wallet |
-| `/dashboard` | Dashboard — stats + recent activity |
-| `/payroll/new` | New Payroll Run — CSV upload, preview, send |
-| `/payroll/confirm` | Transaction Confirmation |
-| `/history` | Payroll Ledger — history + CSV export |
-
----
-
-## Demo Mode
-
-When `NOVAPAY_CONTRACT_ADDRESS` is the zero address (default), the app runs in **Demo Mode**:
-- Two mock payroll runs are pre-populated in history
-- The "Send Payroll" button simulates a 2.5-second transaction
-- A fake tx hash is generated
-- No MetaMask approval prompts appear
-- USDC balance shows 50,000 for demo purposes
-- All history is saved to `localStorage` and persists across reloads
-
-**A yellow "DEMO MODE" badge appears in the navbar whenever Demo Mode is active.**
+The contract uses `transferFrom` — the frontend approves the exact total before calling `batchPayout`.
 
 ---
 
@@ -154,82 +165,91 @@ When `NOVAPAY_CONTRACT_ADDRESS` is the zero address (default), the app runs in *
 
 ```
 NovaPay/
-├── index.html
-├── vite.config.js
-├── package.json
-├── hardhat.config.cjs          # Contract deploy config (Morph Hoodi)
+├── apps/
+│   └── api/                        # Fastify backend (TypeScript)
+│       ├── src/
+│       │   ├── routes/             # auth, orgs, me, admin, proof
+│       │   ├── services/           # authService, emailService, auditService
+│       │   ├── middleware/         # authenticate, requireOrgMember, requireRole, requireSuperAdmin
+│       │   ├── workers/            # txWatcher, scheduleChecker, emailWorker
+│       │   ├── db/prisma/          # schema.prisma + Prisma client
+│       │   ├── integration/        # integration test suites + helpers
+│       │   └── config/env.ts       # Zod-validated env vars
+│       ├── vitest.config.ts        # unit test config
+│       ├── vitest.integration.config.ts  # integration test config
+│       ├── .env                    # local env (git-ignored)
+│       ├── .env.example            # env template
+│       └── .env.test               # integration test env (git-ignored)
+├── src/                            # React frontend (Vite)
+│   ├── pages/
+│   │   ├── auth/                   # Login, Signup, AcceptInvite
+│   │   ├── app/                    # Dashboard, NewPayrollRun, PayrollHistory, etc.
+│   │   └── admin/                  # AdminDashboard, AdminOrgList, AdminUserList
+│   ├── components/                 # Navbar, NotificationDropdown, PayrollStatusBadge
+│   ├── context/                    # AuthContext, OrgContext, Web3Context
+│   ├── services/api.js             # Fetch wrapper with auth headers
+│   └── utils/                      # csvParser, csvExporter
 ├── contracts/
-│   └── PayFlow.sol             # Batch payout smart contract
+│   └── NovaPay.sol                 # Batch payout smart contract
 ├── scripts/
-│   └── deploy.cjs              # Hardhat deploy script
-├── src/
-│   ├── index.jsx               # React entry point
-│   ├── App.jsx                 # Router + layout
-│   ├── App.css                 # All styles (dark theme)
-│   ├── context/
-│   │   └── Web3Context.jsx     # Wallet connection, contract calls, history
-│   ├── utils/
-│   │   ├── contractABI.js      # ABI + contract/network config
-│   │   ├── csvParser.js        # Parse + validate uploaded CSV
-│   │   └── csvExporter.js      # Export history to CSV/XLSX
-│   ├── components/
-│   │   └── Navbar.jsx          # Top navigation bar
-│   └── pages/
-│       ├── ConnectWallet.jsx
-│       ├── Dashboard.jsx
-│       ├── NewPayrollRun.jsx
-│       ├── TransactionConfirmation.jsx
-│       └── PayrollHistory.jsx
+│   └── deploy.cjs                  # Hardhat deploy to Morph Hoodi
+├── package.json                    # Root workspace (frontend + api:* scripts)
+├── SETUP.md                        # Full local setup guide
 └── README.md
 ```
 
 ---
 
-## Deployment (Vercel + CI/CD)
+## Testing
 
-### GitHub Actions CI
-Every push to `main` or `dev`, and every pull request to `main`, triggers a build check automatically. If the build fails, the PR is blocked. No extra setup needed — the workflow is at [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-
-### Deploying to Vercel
-1. Push this repo to GitHub
-2. Go to [vercel.com](https://vercel.com) → **Add New Project** → import your repo
-3. Vercel auto-detects Vite — leave all settings as-is, then click **Deploy**
-
-That's it. From then on:
-- Every push to `main` → production deploy
-- Every PR → preview deployment with a unique URL
-- [`vercel.json`](vercel.json) handles SPA routing so direct links like `/dashboard` don't 404
-
----
-
-## Tech Stack
-
-- **React 18** + React Router 6
-- **ethers.js v6** — wallet connection, contract interaction
-- **PapaParse** — CSV parsing and export
-- **Vite** — build tool
-- **Morph Hoodi** — L2 blockchain
-- Zero backend, zero auth — wallet is identity
-
----
-
-## Troubleshooting
-
-**`npm install` fails** — Make sure you're on Node.js v18 or higher. Run `node -v` to check. Download the LTS version from [nodejs.org](https://nodejs.org/).
-
-**`vite: command not found`** — You skipped `npm install`. Run it first from inside the `NovaPay` folder.
-
-**"MetaMask not installed"** — Install the MetaMask browser extension and refresh the page.
-
-**Stuck on "Connecting…"** — Check that MetaMask is unlocked and you approved the connection request. Try refreshing the page and connecting again.
-
-**Wrong network warning** — Click the warning banner in the app or open MetaMask manually and switch to Morph Hoodi (Chain ID 2910). The app can add the network automatically.
-
-**Port 5173 already in use** — Start the dev server on a different port:
 ```bash
-npm run dev -- --port 3000
+# Frontend unit tests (113 tests — CSV parser, components, contexts)
+npm run test
+
+# API unit tests
+npm run api:test
+
+# API integration tests — boots real Fastify app against a real DB
+# Requires apps/api/.env.test  (see SETUP.md § Running Tests)
+npm run test:integration --workspace=apps/api
+
+# Frontend + API unit tests together
+npm run test:all
 ```
 
-**CSV upload shows errors** — Check that `wallet_address` is a valid 0x EVM address and `amount` is a positive number. Use the **"Sample CSV"** button in the app to download a working example.
+> Integration tests create and clean up their own isolated data — they are safe to run against your development database.
 
-**Transaction fails** — Ensure your USDC balance covers the total payout. In live mode the app approves the exact total before calling the contract.
+---
+
+## Deployment
+
+### Frontend — Vercel
+```bash
+# Push to GitHub, import repo on vercel.com — Vite is auto-detected
+# vercel.json handles SPA routing so /dashboard doesn't 404
+```
+
+### API — any Node.js host (Railway, Render, Fly.io)
+```bash
+npm run api:build              # compiles TypeScript → dist/
+npm run api:start              # runs dist/server.js
+```
+
+Set all env vars from `apps/api/.env.example` in your host's environment dashboard.
+
+### GitHub Actions CI
+Every push to `main` / `dev` and every PR triggers an automatic build + test check (`.github/workflows/ci.yml`).
+
+---
+
+## Morph Hoodi Network Details
+
+| Field | Value |
+|---|---|
+| Network Name | Morph Hoodi |
+| RPC URL | `https://rpc-hoodi.morphl2.io` |
+| Chain ID | `2910` |
+| Currency | ETH |
+| Block Explorer | `https://explorer-hoodi.morphl2.io` |
+
+Click **"Wrong Network"** in the app navbar — it adds Morph Hoodi to MetaMask automatically.

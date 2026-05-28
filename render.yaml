@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: novapay-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm -w apps/api run db:generate && npm run api:build
+    startCommand: npm run api:start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: REFRESH_TOKEN_SECRET
+        sync: false
+      - key: REFRESH_TOKEN_EXPIRES_IN
+        value: 30d
+      - key: REDIS_URL
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: MORPH_RPC_URL
+        value: https://rpc-hoodi.morphl2.io
+      - key: NOVAPAY_B2B_CONTRACT_ADDRESS
+        sync: false
+      - key: SUPER_ADMIN_JWT_SECRET
+        sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false

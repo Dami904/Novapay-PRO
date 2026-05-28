@@ -1,38 +1,38 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { useOrg } from '../context/OrgContext'
 import { useWeb3 } from '../context/Web3Context'
-import { NOVAPAY_CONTRACT_ADDRESS } from '../utils/contractABI'
+import NotificationDropdown from './NotificationDropdown'
+import { useTheme } from '../App'
 
-function shortAddress(addr) {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-}
-
-export default function Navbar({ theme, toggleTheme }) {
-  const { account, tokenBalance, selectedToken, isCorrectNetwork, networkError, disconnect, switchToMorph, demoMode, toggleDemoMode } = useWeb3()
+export default function Navbar() {
+  const { user, logout }     = useAuth()
+  const { currentOrgMeta, currentRole } = useOrg()
+  const { account, isCorrectNetwork, networkError, switchToMorph } = useWeb3()
+  const { theme, toggleTheme } = useTheme()
   const location = useLocation()
+  const navigate = useNavigate()
   const [switching, setSwitching] = useState(false)
+
+  if (!user) return null
+
+  const navLinks = [
+    { to: '/dashboard',      label: 'Dashboard' },
+    { to: '/history',        label: 'Payroll' },
+    { to: '/approval-queue', label: 'Approvals', roles: ['owner', 'admin', 'finance'] },
+    { to: '/employees',      label: 'Employees' },
+    { to: '/members',        label: 'Members' },
+  ]
+
+  const visibleLinks = navLinks.filter((l) => !l.roles || l.roles.includes(currentRole))
+  const isSuperAdmin = user?.isSuperAdmin
 
   async function handleSwitchNetwork() {
     if (switching) return
     setSwitching(true)
-    try {
-      await switchToMorph()
-    } catch {
-      // user rejected or error — silently reset
-    } finally {
-      setSwitching(false)
-    }
+    try { await switchToMorph() } catch { /* user rejected */ } finally { setSwitching(false) }
   }
-
-  const isZeroContract = NOVAPAY_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000'
-
-  if (!account) return null
-
-  const navLinks = [
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/payroll/new', label: 'New Payroll' },
-    { to: '/history', label: 'Ledger' },
-  ]
 
   return (
     <nav className="navbar">
@@ -43,69 +43,60 @@ export default function Navbar({ theme, toggleTheme }) {
         </Link>
 
         <div className="navbar-links">
-          {navLinks.map((link) => (
+          {visibleLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
-              className={`nav-link ${location.pathname === link.to ? 'active' : ''}`}
+              className={`nav-link ${location.pathname.startsWith(link.to) ? 'active' : ''}`}
             >
               {link.label}
             </Link>
           ))}
+          {isSuperAdmin && (
+            <Link
+              to="/admin"
+              className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}
+              style={{ opacity: 0.75 }}
+            >
+              ⚡ Admin
+            </Link>
+          )}
         </div>
 
         <div className="navbar-right">
-          <div className="mode-toggle">
-            <button
-              className={`mode-toggle-option${demoMode ? ' active-demo' : ''}`}
-              onClick={() => !demoMode && toggleDemoMode()}
-            >
-              DEMO
-            </button>
-            <button
-              className={`mode-toggle-option${!demoMode ? ' active-live' : ''}`}
-              onClick={() => demoMode && !isZeroContract && toggleDemoMode()}
-              disabled={isZeroContract}
-              title={isZeroContract ? 'Deploy the contract first to enable Live mode' : undefined}
-            >
-              LIVE
-            </button>
-          </div>
-          <button
-            className="theme-toggle"
-            onClick={toggleTheme}
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          >
+          <button className="theme-toggle" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
             {theme === 'dark' ? '☀' : '☾'}
           </button>
-          {isCorrectNetwork ? (
-            <div className="network-badge ok">
-              <span className="network-dot" />
-              Morph Testnet
-            </div>
-          ) : (
-            <button
-              className="network-badge warn network-badge-btn"
-              onClick={handleSwitchNetwork}
-              disabled={switching}
-              title="Click to switch to Morph Hoodi"
-            >
-              <span className="network-dot" />
-              {switching ? 'Switching…' : 'Wrong Network'}
-            </button>
+
+          {account && (
+            isCorrectNetwork ? (
+              <div className="network-badge ok"><span className="network-dot" />Morph</div>
+            ) : (
+              <button className="network-badge warn network-badge-btn" onClick={handleSwitchNetwork} disabled={switching}>
+                <span className="network-dot" />{switching ? 'Switching…' : 'Wrong Network'}
+              </button>
+            )
           )}
-          <div className="usdc-balance">
-            <span className="balance-label">{selectedToken}</span>
-            <span className="balance-value">{parseFloat(tokenBalance).toLocaleString()}</span>
-          </div>
-          <div className="wallet-chip">
-            <span className="wallet-dot" />
-            <span>{shortAddress(account)}</span>
-            <button className="disconnect-btn" onClick={disconnect} title="Disconnect">✕</button>
+
+          <NotificationDropdown />
+
+          {['owner', 'admin'].includes(currentRole) && (
+            <button className="theme-toggle" onClick={() => navigate('/settings')} title="Settings">⚙</button>
+          )}
+
+          <div className="wallet-chip" style={{ gap: '0.5rem' }}>
+            {currentOrgMeta && (
+              <span style={{ opacity: 0.7, fontSize: '0.8rem', textTransform: 'capitalize' }}>
+                {currentOrgMeta.role}
+              </span>
+            )}
+            <span>{user.fullName?.split(' ')[0] ?? user.email}</span>
+            <button className="disconnect-btn" onClick={logout} title="Log out">✕</button>
           </div>
         </div>
       </div>
-      {networkError && (
+
+      {networkError && account && (
         <button className="network-warning-bar" onClick={handleSwitchNetwork} disabled={switching}>
           ⚠ {networkError}
           <span className="switch-cta">{switching ? 'Switching…' : '→ Click to switch'}</span>
