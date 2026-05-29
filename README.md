@@ -25,10 +25,10 @@ Multi-tenant B2B payroll platform. Upload a CSV, route it through an approval wo
 | Backend | Fastify (TypeScript), Zod validation |
 | Database | PostgreSQL via Neon (serverless) + Prisma ORM |
 | Queue / Jobs | BullMQ + Redis (Upstash) |
-| Email | Resend |
+| Email | Gmail via Nodemailer |
 | Blockchain | Morph Hoodi L2 (EVM-compatible) |
 | Auth | JWT (15 min) + httpOnly refresh tokens (30 days) |
-| Testing | Vitest — 113 unit tests + 98 integration tests |
+| Testing | Vitest — unit tests + integration tests |
 
 ---
 
@@ -39,8 +39,8 @@ Requires **Node.js v18+**, **npm v9+**, and accounts on [Neon](https://neon.tech
 See [SETUP.md](SETUP.md) for the complete step-by-step guide.
 
 ```bash
-git clone https://github.com/Dami904/NovaPay.git
-cd NovaPay
+git clone https://github.com/Dami904/Novapay-PRO.git
+cd Novapay-PRO
 npm install                          # installs frontend + API dependencies
 
 # Terminal 1 — API (port 3001)

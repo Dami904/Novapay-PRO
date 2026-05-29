@@ -2,7 +2,9 @@ node_modules/
 dist/
 artifacts/
 cache/
+# Block every .env variant; explicitly re-allow example/template files
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
 .vercel/

@@ -23,8 +23,8 @@ You also need free accounts on:
 ## Step 1 — Clone and install
 
 ```bash
-git clone https://github.com/Dami904/NovaPay.git
-cd NovaPay
+git clone https://github.com/Dami904/Novapay-PRO.git
+cd Novapay-PRO
 npm install
 ```
 
@@ -65,11 +65,15 @@ You should see Prisma confirm that all tables were created. That's it — no mig
 
 ---
 
-## Step 5 — Set up email (Resend)
+## Step 5 — Set up email (Gmail)
 
-1. Go to [resend.com](https://resend.com) → create an account → **API Keys** → create a new key
-2. Paste the key as `RESEND_API_KEY` in `apps/api/.env`
-3. Set `EMAIL_FROM` to any email you control (must match a verified sender in Resend — for testing you can use `onboarding@resend.dev`)
+NovaPay sends email via Gmail using Nodemailer. You need a Gmail address with an **App Password** (not your regular Gmail password).
+
+1. Go to [myaccount.google.com](https://myaccount.google.com) → **Security** → **2-Step Verification** (must be on) → **App passwords**
+2. Create a new app password — copy the 16-character code
+3. In `apps/api/.env`, set:
+   - `GMAIL_USER` — your Gmail address (e.g. `you@gmail.com`)
+   - `GMAIL_APP_PASSWORD` — the 16-character app password from step 2
 
 ---
 
@@ -114,9 +118,9 @@ REFRESH_TOKEN_EXPIRES_IN=30d
 # Redis (from Upstash)
 REDIS_URL=redis://...
 
-# Email (from Resend)
-RESEND_API_KEY=re_...
-EMAIL_FROM=you@yourdomain.com
+# Email (Gmail via Nodemailer)
+GMAIL_USER=you@gmail.com
+GMAIL_APP_PASSWORD=<16-char app password>
 
 # Blockchain (defaults work for Morph Hoodi — update after deploying the contract)
 MORPH_RPC_URL=https://rpc-hoodi.morphl2.io
