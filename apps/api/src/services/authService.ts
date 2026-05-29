@@ -115,7 +115,7 @@ export async function revokeRefreshToken(token: string): Promise<void> {
 export const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure:   env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  sameSite: (env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
   path:     '/api/v1/auth',
   maxAge:   60 * 60 * 24 * REFRESH_TTL_DAYS, // seconds
 };
