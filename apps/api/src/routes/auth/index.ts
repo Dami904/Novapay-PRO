@@ -45,7 +45,8 @@ export default async function authRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Validation error', issues: body.error.flatten() });
     }
 
-    const { email, password, fullName, orgName } = body.data;
+    const { email: rawEmail, password, fullName, orgName } = body.data;
+    const email = rawEmail.toLowerCase().trim();
 
     // Check email not taken
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -113,7 +114,8 @@ export default async function authRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Validation error', issues: body.error.flatten() });
     }
 
-    const { email, password } = body.data;
+    const { email: rawEmail, password } = body.data;
+    const email = rawEmail.toLowerCase().trim();
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
