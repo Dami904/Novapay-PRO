@@ -117,7 +117,9 @@ export default async function authRoutes(app: FastifyInstance) {
     const { email: rawEmail, password } = body.data;
     const email = rawEmail.toLowerCase().trim();
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    });
     if (!user) {
       // Same message for wrong email or wrong password — prevents user enumeration
       return reply.code(401).send({ error: 'Invalid email or password' });
