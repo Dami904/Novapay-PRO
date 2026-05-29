@@ -76,6 +76,80 @@ export default function PayrollRunDetail() {
   if (isLoading) return <div className="page"><div className="empty-state"><span className="spinner-sm" /> Loading…</div></div>
   if (!run)      return <div className="page"><div className="empty-state"><p className="empty-title">Run not found</p></div></div>
 
+  // Success screen after execution
+  if (execute.isSuccess) {
+    const txHash = execute.data
+    return (
+      <div className="page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '3rem' }}>
+        <div className="card" style={{ maxWidth: '520px', width: '100%', textAlign: 'center' }}>
+          {/* Checkmark */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+            <div style={{
+              width: '72px', height: '72px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '2rem', boxShadow: '0 0 32px rgba(99,102,241,0.4)',
+            }}>✓</div>
+          </div>
+
+          <h1 style={{ fontWeight: 700, fontSize: '1.6rem', marginBottom: '0.5rem' }}>Payroll Sent!</h1>
+          <p style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '1.75rem', lineHeight: 1.6 }}>
+            Your batch payout has been processed onchain and permanently recorded.
+          </p>
+
+          {/* Receipt rows */}
+          <div style={{ textAlign: 'left', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: '1.5rem' }}>
+            {[
+              { label: 'Label',          value: run.label },
+              { label: 'Recipients',     value: `${run.recipientCount} employees paid` },
+              { label: 'Total Disbursed', value: `$${Number(run.totalAmount).toLocaleString()} ${run.token}`, highlight: true },
+              { label: 'Transaction Hash', value: `${txHash.slice(0, 18)}…${txHash.slice(-6)}` },
+            ].map(({ label, value, highlight }, i, arr) => (
+              <div key={label} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '0.75rem 1rem',
+                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+              }}>
+                <span style={{ opacity: 0.55, fontSize: '0.85rem' }}>{label}</span>
+                <span style={{ fontWeight: 600, fontSize: '0.875rem', ...(highlight ? { color: 'var(--accent)' } : {}) }}>
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Explorer link */}
+          {run.explorerUrl && (
+            <a
+              href={run.explorerUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-ghost"
+              style={{ display: 'block', textAlign: 'center', textDecoration: 'none', marginBottom: '0.75rem' }}
+            >
+              View on Morph Explorer ↗
+            </a>
+          )}
+
+          {/* Run another */}
+          <button
+            className="btn-primary"
+            style={{ width: '100%', marginBottom: '1rem' }}
+            onClick={() => navigate('/payroll/new')}
+          >
+            + Run Another Payroll
+          </button>
+
+          {/* Text links */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem' }}>
+            <button className="btn-ghost btn-sm" onClick={() => navigate('/history')}>View Ledger</button>
+            <button className="btn-ghost btn-sm" onClick={() => navigate('/dashboard')}>Dashboard</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const canExecute = CAN_EXECUTE.includes(currentRole) && run.status === 'approved'
   const canRecall  = CAN_RECALL.includes(currentRole)  && run.status === 'approved'
 

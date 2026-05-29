@@ -5,6 +5,8 @@ const FEATURES = [
   { icon: '⬆',  label: 'CSV Batch Payroll',       desc: 'Upload your payroll file and pay everyone in a single on-chain transaction.' },
   { icon: '🔗',  label: 'Fully On-Chain',          desc: 'Every payout is recorded on Morph L2. Verifiable by anyone, forever.' },
   { icon: '📋',  label: 'Audit Log',               desc: 'Every action—approve, reject, execute—is logged with actor and timestamp.' },
+  { icon: '✉️',  label: 'Payslip Emails',          desc: 'Every recipient gets a personal email with their exact amount and a direct link to their payment on-chain.' },
+  { icon: '🔔',  label: 'Discord Notifications',   desc: 'Get instant alerts in your team Discord channel when payroll is submitted, approved, or executed.' },
 ]
 
 export default function LandingPage() {
@@ -20,15 +22,16 @@ export default function LandingPage() {
         <div className="connect-hero">
           <div className="hero-logo">
             <span className="hero-logo-icon">✦</span>
-            <span className="hero-logo-text">NovaPay</span>
+            <span className="hero-logo-text">NovaPay Pro</span>
           </div>
 
           <h1 className="hero-headline">
-            Web3 Payroll for<br />
-            <span className="gradient-text">Teams That Move Fast.</span>
+            Web3 Payroll for Large Teams<br />
+            <span className="gradient-text">That Actually Makes Sense.</span>
           </h1>
           <p className="hero-sub">
-            Multi-role approvals, CSV batch payouts, full audit trail —
+            Multi-role approvals, CSV batch payouts, full audit trail,
+            personalised payslip emails &amp; Discord alerts —
             all on-chain on Morph L2. Built for real companies.
           </p>
 
